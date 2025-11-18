@@ -1,23 +1,34 @@
-mport { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+
+const openlibrary_login_url = 'https://openlibrary.org/account/login';
 
 test('OpenLibrary: Google sign-in iframe appears and is clickable', async ({ page }) => {
-  // Navigate to OpenLibrary login page
-  await page.goto('https://openlibrary.org/account/login');
+  await page.goto(openlibrary_login_url);
 
-  // Wait for the third-party login iframe to load
+  await expect(page.locator('#ia-third-party-logins')).toBeVisible({ timeout: 15000 });
+
   const thirdPartyIframe = page.frameLocator('#ia-third-party-logins');
+  const googleIframe = thirdPartyIframe.locator(
+    'iframe[title="Sign in with Google Button"], iframe[src*="accounts.google.com/gsi/button"]'
+  );
 
-  // Look for Google sign-in iframe INSIDE the third-party login iframe
-  const googleIframe = thirdPartyIframe.locator('iframe[title="Sign in with Google Button"], iframe[src*="accounts.google.com/gsi/button"]');
-
-  // Wait for the Google iframe to appear and be visible
   await expect(googleIframe).toBeVisible({ timeout: 15000 });
+  const googleIframeHandle = await googleIframe.elementHandle();
+  expect(googleIframeHandle).not.toBeNull();
 
-  console.log('Google sign-in iframe found inside third-party login iframe');
+  const googleFrame = await googleIframeHandle!.contentFrame();
+  expect(googleFrame).not.toBeNull();
+
+  const html = await googleFrame!.content();
+  expect(html.length).toBeGreaterThan(50);
+
+  await expect(
+    googleFrame!.locator('div[role="button"], span:text("Sign in")').first()
+  ).toBeVisible();
 });
 
 test('OpenLibrary: Check if Google sign-in requires interaction', async ({ page }) => {
-  await page.goto('https://openlibrary.org/account/login');
+  await page.goto(openlibrary_login_url);
   await page.waitForLoadState('networkidle');
 
   // Sometimes OAuth buttons appear after clicking a specific trigger
@@ -36,7 +47,7 @@ test('OpenLibrary: Check if Google sign-in requires interaction', async ({ page 
 });
 
 test('OpenLibrary: Test actual login flow available', async ({ page }) => {
-  await page.goto('https://openlibrary.org/account/login');
+  await page.goto(openlibrary_login_url);
 
   // Check what authentication methods are actually present
   const hasEmailField = await page.locator('input[type="email"], input[name*="email"], input[id*="email"]').isVisible({ timeout: 5000 }).catch(() => false);
